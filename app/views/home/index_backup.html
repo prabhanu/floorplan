@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script type="text/javascript"></script>
+<script type="text/javascript"></script>
+</head>
+
+
+<body>
+Width: <input type="text" name="width" id="width">
+Height: <input type="text" name="height" id="height">
+Caption: <input type="text" name="Caption" id="caption">
+
+<select id='color'>
+  <option value="Red">Hall</option>
+  <option value="Blue">Bedroom</option>
+  <option value="Green">Kitchen</option>
+</select>
+
+<button type="button" id="addrect" >Rectangle</button>
+<button type="button" id="delete" >Delete</button>
+<button type="button" id="save" >Save</button>
+<button type="button" id="drawPolygon" >Draw Polygon</button>
+<button type="button" id="test" >Test</button>
+<canvas id="c" width="602" height="602" style="border:1px solid #aaa"></canvas><br>
+Identity: <input type="text" name="width" id="identity">
+<button type="button" id="fetch" >Fetch</button>
+<canvas id="d" width="602" height="602" style="border:1px solid #aaa"></canvas><br>
+<%= javascript_include_tag('fabric') %>
+
+
+<script id="main" type="text/javascript">
+var canvas = new fabric.Canvas('c');
+var rect = new fabric.Rect({
+  width: 200, height: 100, left: 100, top: 100, angle: 0,
+  fill: 'rgba(255,0,0,0.2)'
+});
+
+//canvas.add(rect);
+canvas.on({
+  'object:moving': onChange,
+  'object:scaling': onChange,
+  'object:rotating': onChange,
+});
+
+var rect_array=new Array();
+var i=0;       //accounts for number of entities
+
+$('#addrect').click(function(){
+	width  = Number(document.getElementById('width').value);
+	height = Number(document.getElementById('height').value);
+  caption = String(document.getElementById('caption').value);
+	color  = document.getElementById('color').value
+	var rectangle = new fabric.Rect({
+                   width: width, height: height, left: 300, top: 200, angle: 0,
+                   fill: color, caption: caption
+                               });
+	i++;
+	canvas.add(rectangle);
+})
+
+var drawflag=0;   
+var n;
+var path_string = new Array();
+$('#drawPolygon').click(function(){
+  drawflag=!drawflag;
+  if(drawflag){
+    n=0;
+    i++;
+    path_string = new Array();
+    console.log(path_string);
+   }
+
+  else 
+    {
+    path_string[n]=["z"];
+    string = pathToString(path_string);
+    var poly_path = new fabric.Path(string);
+    poly_path.set({ fill: 'red', opacity: 0.5,selectable: false});
+    console.log(string);
+    poly_path.id=i;
+    canvas.add(poly_path);
+    }
+
+canvas.on('mouse:down', function(options) {
+  if(path_string[n-1])
+    {if((options.e.clientX-path_string[n-1][1]==0)&&(options.e.clientY-path_string[n-1][2]==0))
+      return;
+    }
+  if(drawflag){
+    console.log(options.e.clientX, options.e.clientY);
+    if(n==0){
+        path_string[n]=["M",options.e.clientX,options.e.clientY];
+    }
+    else
+        path_string[n]=["L",options.e.clientX,options.e.clientY];
+        var circle = new fabric.Circle({
+          radius: 5,
+          fill: 'red',
+          left: options.e.clientX,
+          top: options.e.clientY,
+          polyId:i,
+          circleId: n,
+          cornerSize: 0,
+          lockScalingX: true,
+          lockScalingY: true,
+          lockUniScaling: true,
+          borderScaleFactor:5,
+          hasRotatingPoint: false
+      });
+          canvas.add(circle);
+          console.log(n);
+          n++;
+  };
+});
+})
+
+var Polygon;
+canvas.on('object:moving', function(e) {
+  var activeObject = e.target;
+  circleId=activeObject.circleId;
+  polyId= activeObject.polyId;
+  canvas.forEachObject(function(o){ 
+    if(o.id==polyId)
+      {Polygon=o;
+       Polygon.path[circleId][1]=activeObject.left;
+       Polygon.path[circleId][2]=activeObject.top;
+       Polygon.opacity=0.1;
+       canvas.renderAll;
+      }
+
+  });
+});
+
+canvas.on('object:over', function(e) {
+  var activeObject = e.target;
+  activeObject.fill='blue';
+  canvas.renderAll();
+});
+
+canvas.on('mouse:up', function(options) {
+    if(Polygon)
+      {Polygon.opacity=0.5;
+      console.log("mouseup");
+      canvas.renderAll();}
+})
+
+$('#test').click(function(){
+  console.log("test");
+  var path = new fabric.Path('M 0 0 L 200 100 L 170 200 z');
+  path.set({ left: 120, top: 120 });
+  canvas.add(path);
+})
+
+//deletes selected group or object
+$('#delete').click(function(){
+  if(canvas.getActiveGroup()){
+      canvas.getActiveGroup().forEachObject(function(o){ canvas.remove(o) });
+      canvas.discardActiveGroup().renderAll();
+    } else {
+      canvas.remove(canvas.getActiveObject());
+    }
+})
+
+
+function pathToString(path)
+{ var str = "";
+  pathLength=path.length
+  for (var i=0;i<pathLength;i++)
+    { 
+      entityLength=path[i].length;
+      for (var j=0;j<entityLength;j++)
+          { 
+            str = str.concat(path[i][j]," ");
+          }
+    }
+    return str;
+}
+
+function onChange(options) {
+  options.target.setCoords();
+  canvas.forEachObject(function(obj) {
+    if (obj === options.target) return;
+    obj.setOpacity(options.target.intersectsWithObject(obj) ? 0.5 : 1);
+  });
+}
+
+// var bw = 600;
+// var bh = 600;
+// var p = 0;
+// var cw = bw + (p*2) + 1;
+// var ch = bh + (p*2) + 1;
+
+// var context = canvas.getContext("2d");
+// function drawBoard(){
+// for (var x = 0; x <= bw; x += 50) {
+//     context.moveTo(0.5 + x + p, p);
+//     context.lineTo(0.5 + x + p, bh + p);
+// }
+
+
+// for (var x = 0; x <= bh; x += 50) {
+//     context.moveTo(p, 0.5 + x + p);
+//     context.lineTo(bw + p, 0.5 + x + p);
+// }
+
+// context.strokeStyle = "black";
+// context.stroke();
+// }
+
+// drawBoard();
+
+
+//Saves current canvas figure into server's database in json format
+$('#save').click(function(){
+  var drawingjson = JSON.stringify(canvas.toObject(["caption","polyId", "circleId"]))
+  //var drawingjson = JSON.stringify(canvas); 
+  // alert(drawingjson);
+  $.ajax({
+        url: "/home/save",
+        dataType: "json",
+        data: {json : drawingjson},
+        method: "POST"
+    });
+  //$.post("/home/save", drawingjson);
+})
+
+
+
+var canvas2 = new fabric.Canvas('d');
+//var ctx=canvas2.getContext("2d");
+
+$('#fetch').click(function(){
+  identity  = Number(document.getElementById('identity').value);
+  canvas2.clear();
+  $.ajax({
+        url: "/home/fetch.json",
+        dataType: "json",
+        data: {id : identity},
+        method: "GET",
+        success: function(data) {
+        //console.log(data);
+        canvas2.loadFromJSON(data);}
+    });
+  
+})
+
+
+$(document).ready(
+  function(){
+
+  }
+);
+
+
+
+</script>
+
+</body>
+</html>
+
+
+
+
+if(path_string[n-1]){
+      if((options.e.clientX-lastPointX==0)&&(options.e.clientY-lastPointY==0))
+        return;
+    }
+
+    console.log(options.e.clientX, options.e.clientY,lastPointX,lastPointY);
+    lastPointX=options.e.clientX;
+    lastPointY=options.e.clientY;
+    console.log(options.e.clientX, options.e.clientY,lastPointX,lastPointY);
+
+
+    canvas.forEachObject(function(o){ 
+        if(o.type=='line'){
+          canvas.remove(o);
+        }
+        canvas.remove(dynamicCircle);
